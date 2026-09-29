@@ -1,0 +1,29 @@
+# Runs on every push and pull request: the same checks as the local release gate, minus the
+# local-only prod-readiness scripts. A red run means do not deploy.
+# The build needs no secrets: env vars are read at request time, and instrumentation's startup
+# check is skipped during `next build`.
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      # Route and page types (LayoutProps, PageProps) are generated, not committed.
+      - run: npx next typegen
+      - run: npx tsc --noEmit
+      - run: npm run lint
+      - run: npm test
+      - run: npm run build
