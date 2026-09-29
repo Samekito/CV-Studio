@@ -85,7 +85,14 @@ async function callGemini(system: string, user: string, model: string): Promise<
         log.error("gemini.error", { model: modelName, status: res.status, detail: last.body.slice(0, 1000) });
         throw new LlmError(`The AI provider returned an error (${res.status}). Try again in a minute.`);
       }
-      log.warn("gemini.busy", { model: modelName, attempt, status: res.status, daily: isDailyQuota(last.body) });
+      log.warn("gemini.busy", {
+        model: modelName,
+        attempt,
+        status: res.status,
+        daily: isDailyQuota(last.body),
+        // Google's own reason ("overloaded", "not available on the free tier", ...); holds no request content.
+        detail: last.body.slice(0, 300),
+      });
       if (res.status === 429 && isDailyQuota(last.body)) break;
 
       const wait = (res.status === 429 ? retryDelayMs(last.body) : null) ?? DEFAULT_WAIT_MS;
