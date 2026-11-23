@@ -25,15 +25,16 @@ const DEFAULT_GROQ_MODEL = "openai/gpt-oss-120b";
 const DEFAULT_GROQ_CHECK_MODEL = "openai/gpt-oss-120b";
 
 // Google sometimes accepts a request and then never answers. Without a ceiling the app waited
-// until Vercel killed the request at 300 s, and the backups were never tried. Groq answers in
-// seconds, so its ceiling is lower.
+// until Vercel killed the request at 300 s, and the backups were never tried. Groq has answered
+// in 3 to 12 s in testing, so its ceiling is lower.
 const GEMINI_TIMEOUT_MS = 90000;
-const GROQ_TIMEOUT_MS = 60000;
+const GROQ_TIMEOUT_MS = 45000;
 // Groq's free tier allows about 8,000 tokens a minute per model and one CV request uses about
-// 6,500, so when Groq both writes a CV and checks it, the check must wait about 30 s for the
-// allowance to refill. Groq's 429 says how long; waits up to this long are taken once.
-// Worst case for a CV plus its check: Gemini about 95 s, then Groq 60 s to write, 45 s of
-// waiting and 60 s to check, inside the route's 300 s.
+// 6,500, so when Groq both writes a CV and checks it, the check must wait for the allowance to
+// refill. Groq's 429 says how long, but after one wait it can count the retry as larger and ask
+// for a second, so waits are taken until they add up to this much per call.
+// Worst case for a CV plus its check: Gemini about 95 s, then for each Groq call 45 s of
+// waiting and 45 s to answer: 95 + 90 + 90 = 275 s, inside the route's 300 s.
 const GROQ_MAX_WAIT_MS = 45000;
 
 export class LlmError extends Error {}
@@ -195,7 +196,8 @@ async function callGroq(system: string, user: string, model: string): Promise<st
 
   let res: Response | null = null;
   let body = "";
-  for (let attempt = 1; attempt <= 2; attempt++) {
+  let waited = 0;
+  for (let attempt = 1; attempt <= 3; attempt++) {
     try {
       res = await request();
       body = await res.text();
@@ -203,11 +205,12 @@ async function callGroq(system: string, user: string, model: string): Promise<st
       log.warn("groq.busy", { model, attempt, status: "no_response", detail: errorMessage(err) });
       throw new LlmBusyError("The AI provider did not answer. Wait a minute and try again.");
     }
-    if (res.status !== 429 || attempt === 2) break;
+    if (res.status !== 429 || attempt === 3) break;
     const wait = groqRetryDelayMs(body);
     // Groq's error body names the limit that was hit; it holds no request content.
     log.warn("groq.busy", { model, attempt, status: 429, waitMs: wait, detail: body.slice(0, 300) });
-    if (wait === null || wait > GROQ_MAX_WAIT_MS) break;
+    if (wait === null || waited + wait > GROQ_MAX_WAIT_MS) break;
+    waited += wait;
     await new Promise((resolve) => setTimeout(resolve, wait));
   }
 

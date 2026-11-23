@@ -52,12 +52,14 @@ describe("isTailorResult", () => {
     expect(isTailorResult({ ...tailor, factCheck: { status: "done", issues: [issue] } })).toBe(true);
     expect(isTailorResult({ ...tailor, factCheck: { status: "done", issues: [] } })).toBe(true);
     expect(isTailorResult({ ...tailor, factCheck: { status: "unavailable" } })).toBe(true);
+    expect(isTailorResult({ ...tailor, factCheck: { status: "unavailable", issues: [issue] } })).toBe(true);
     expect(isTailorResult({ ...tailor, factCheck: undefined })).toBe(true);
   });
   it("rejects a damaged fact check rather than crash the page on it", () => {
     expect(isTailorResult({ ...tailor, factCheck: { status: "done" } })).toBe(false);
     expect(isTailorResult({ ...tailor, factCheck: { status: "done", issues: [{ text: "x" }] } })).toBe(false);
     expect(isTailorResult({ ...tailor, factCheck: { status: "other" } })).toBe(false);
+    expect(isTailorResult({ ...tailor, factCheck: { status: "unavailable", issues: [{ text: "x" }] } })).toBe(false);
   });
 });
 

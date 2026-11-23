@@ -254,21 +254,20 @@ export default function TailorPage() {
   );
 }
 
-// What the second model call found. It can miss things, so even a clean result keeps the reminder.
+// What the fact check found. It can miss things, so even a clean result keeps the reminder.
+// "unavailable" means the model half failed; the exact half's findings are still listed.
 function FactCheckPanel({ check }: { check: FactCheck }) {
-  if (check.status === "unavailable") {
+  const issues = check.issues ?? [];
+  const modelSkipped = check.status === "unavailable";
+  if (!issues.length) {
     return (
       <section className="card no-print">
         <p className="label">Fact check</p>
-        <p className="text-sm">The fact check did not run this time. Check every line against your Fact Bank before sending.</p>
-      </section>
-    );
-  }
-  if (!check.issues.length) {
-    return (
-      <section className="card no-print">
-        <p className="label">Fact check</p>
-        <p className="text-sm">No unsupported claims found. The check can miss things, so still read every line before sending.</p>
+        <p className="text-sm">
+          {modelSkipped
+            ? "The fact check did not run this time. Check every line against your Fact Bank before sending."
+            : "No unsupported claims found. The check can miss things, so still read every line before sending."}
+        </p>
       </section>
     );
   }
@@ -277,12 +276,13 @@ function FactCheckPanel({ check }: { check: FactCheck }) {
       <div>
         <p className="label text-danger">Fact check</p>
         <p className="text-sm">
-          {check.issues.length} {check.issues.length === 1 ? "line is" : "lines are"} not backed by your Fact Bank. Fix or remove{" "}
-          {check.issues.length === 1 ? "it" : "them"} before sending.
+          {issues.length} {issues.length === 1 ? "line is" : "lines are"} not backed by your Fact Bank. Fix or remove{" "}
+          {issues.length === 1 ? "it" : "them"} before sending.
+          {modelSkipped && " Only numbers, years, links and emails were checked this time, so read the other lines yourself."}
         </p>
       </div>
       <ul className="space-y-2 text-sm">
-        {check.issues.map((issue, i) => (
+        {issues.map((issue, i) => (
           <li key={i} className="border-l-2 border-danger pl-3">
             <p className="font-medium">&ldquo;{issue.text}&rdquo;</p>
             <p className="text-muted">{issue.problem}</p>

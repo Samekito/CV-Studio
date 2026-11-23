@@ -121,6 +121,19 @@ describe("generateJson, checking", () => {
     expect(calls).toEqual(["groq", "groq"]);
   });
 
+  it("waits again when Groq counts the retry as larger and asks for a second wait", async () => {
+    let groqCalls = 0;
+    const calls = fakeNetwork(
+      () => geminiOk({ from: "gemini" }),
+      () =>
+        ++groqCalls < 3
+          ? new Response('{"error":{"message":"Please try again in 0.01s."}}', { status: 429 })
+          : groqOk({ issues: [] }),
+    );
+    expect(await generateJson("system", "user", "check")).toEqual({ issues: [] });
+    expect(calls).toEqual(["groq", "groq", "groq"]);
+  });
+
   it("does not wait when Groq asks for longer than the request can afford", async () => {
     const calls = fakeNetwork(
       () => geminiOk({ from: "gemini" }),

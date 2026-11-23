@@ -76,8 +76,9 @@ Return this JSON:
 }`;
 }
 
-// The CV as the reader sees it, one line per field, so the checker can quote it word for word.
-function cvAsText(cv: Cv): string {
+// The CV as the reader sees it, one line per field, so both checks (the model and
+// src/lib/exact-check.ts) can quote it word for word.
+export function cvAsText(cv: Cv): string {
   const lines = [cv.name, cv.headline, cv.contact.join(" | "), "", "SUMMARY", cv.summary];
   for (const section of cv.sections) {
     lines.push("", section.title);

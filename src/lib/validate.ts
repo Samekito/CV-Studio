@@ -76,8 +76,9 @@ export function isFactCheckAnswer(v: unknown): v is { issues: FactCheckIssue[] }
 
 export function isFactCheck(v: unknown): v is FactCheck {
   if (!isObj(v)) return false;
-  if (v.status === "unavailable") return true;
-  return v.status === "done" && Array.isArray(v.issues) && v.issues.every(isFactCheckIssue);
+  const issuesOk = Array.isArray(v.issues) && v.issues.every(isFactCheckIssue);
+  if (v.status === "unavailable") return v.issues === undefined || issuesOk;
+  return v.status === "done" && issuesOk;
 }
 
 export function isAnswersResult(v: unknown): v is AnswersResult {

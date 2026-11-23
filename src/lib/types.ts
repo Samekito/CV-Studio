@@ -91,7 +91,11 @@ export type TailorResult = {
 export type FactCheckIssue = { text: string; problem: string };
 
 // "unavailable": the checking model failed; the CV is still returned and the page says so.
-export type FactCheck = { status: "done"; issues: FactCheckIssue[] } | { status: "unavailable" };
+// Its issues are the exact check's findings (src/lib/exact-check.ts), which need no model;
+// missing on results saved before that check existed.
+export type FactCheck =
+  | { status: "done"; issues: FactCheckIssue[] }
+  | { status: "unavailable"; issues?: FactCheckIssue[] };
 
 export type AnswersResult = {
   answers: { question: string; answer: string; note?: string }[];
