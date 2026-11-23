@@ -1,5 +1,5 @@
 // POST /api/generate - the one model-calling endpoint.
-// mode "tailor"        -> TailorResult (CV + cover letter + fit check)
+// mode "tailor"        -> TailorResult (CV + cover letter + fit check + fact check)
 // mode "answers"       -> AnswersResult (screening questions)
 // mode "bio"           -> BioResult (platform profile copy)
 // mode "draft_profile" -> Profile (onboarding: first draft of a Fact Bank from a pasted CV)
@@ -8,6 +8,7 @@
 import { NextResponse } from "next/server";
 import { currentUser, notLoggedIn } from "@/lib/auth";
 import { recordEvent, type EventName } from "@/lib/events";
+import { factCheck } from "@/lib/fact-check";
 import { bad, jsonError, route } from "@/lib/http";
 import { generateJson, LlmError } from "@/lib/llm";
 import { errorMessage, log } from "@/lib/log";
@@ -20,7 +21,7 @@ import {
   systemPrompt,
   tailorPrompt,
 } from "@/lib/prompts";
-import { isTrack } from "@/lib/types";
+import { isTrack, type TailorResult } from "@/lib/types";
 import { claimGeneration, dailyLimit, releaseGeneration } from "@/lib/usage";
 import { isAnswersResult, isBioResult, isDraftProfile, isTailorResult } from "@/lib/validate";
 
@@ -67,6 +68,7 @@ export const POST = route("generate", async (request) => {
   let mode: Mode;
   let system: string;
   let userPrompt: string;
+  let factBank = ""; // the caller's own, for the tailor fact check
   if (body.mode === "draft_profile") {
     if (cvText.length < 200) return bad("Paste your whole CV (at least a few paragraphs).");
     mode = "draft_profile";
@@ -77,7 +79,8 @@ export const POST = route("generate", async (request) => {
     if (!profile) return jsonError("Set up your Fact Bank first.", 409);
     const { tracks } = profile;
     const hasTrack = (t: unknown) => isTrack(t) && Boolean(tracks[t]);
-    system = systemPrompt(profile.fact_bank);
+    factBank = profile.fact_bank;
+    system = systemPrompt(factBank);
 
     switch (body.mode) {
       case "tailor": {
@@ -115,6 +118,10 @@ export const POST = route("generate", async (request) => {
     const result = await generateJson(system, userPrompt);
     if (!SHAPE_CHECK[mode](result)) throw new LlmError("The AI returned an incomplete answer. Try again.");
     await recordEvent(`generate.${mode}` as EventName, user.id);
+    if (mode === "tailor") {
+      const tailored = result as TailorResult;
+      return NextResponse.json({ ...tailored, factCheck: await factCheck(factBank, tailored) });
+    }
     return NextResponse.json(result);
   } catch (err) {
     await releaseGeneration(user);

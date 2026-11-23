@@ -2,7 +2,16 @@
 // localStorage, and CVs sent to the tracker. Pages render these fields directly (cv.sections.map,
 // fit.score), so anything that fails a check is rejected before it can crash a page.
 // Pure functions with no server imports, so pages can use them too.
-import { isTrack, type AnswersResult, type BioResult, type Cv, type CvItem, type TailorResult } from "./types";
+import {
+  isTrack,
+  type AnswersResult,
+  type BioResult,
+  type Cv,
+  type CvItem,
+  type FactCheck,
+  type FactCheckIssue,
+  type TailorResult,
+} from "./types";
 
 // Loose on purpose: Supabase does the real address validation; this only catches typos.
 export const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -53,8 +62,22 @@ export function isTailorResult(v: unknown): v is TailorResult {
     isStrArray(v.keywordsUsed) &&
     isStrArray(v.keywordsNotTrue) &&
     isCv(v.cv) &&
-    isStr(v.coverLetter)
+    isStr(v.coverLetter) &&
+    (v.factCheck === undefined || isFactCheck(v.factCheck))
   );
+}
+
+const isFactCheckIssue = (v: unknown): v is FactCheckIssue => isObj(v) && isStr(v.text) && isStr(v.problem);
+
+// The checking model's own answer: { issues: [...] }, an empty list when nothing is wrong.
+export function isFactCheckAnswer(v: unknown): v is { issues: FactCheckIssue[] } {
+  return isObj(v) && Array.isArray(v.issues) && v.issues.every(isFactCheckIssue);
+}
+
+export function isFactCheck(v: unknown): v is FactCheck {
+  if (!isObj(v)) return false;
+  if (v.status === "unavailable") return true;
+  return v.status === "done" && Array.isArray(v.issues) && v.issues.every(isFactCheckIssue);
 }
 
 export function isAnswersResult(v: unknown): v is AnswersResult {

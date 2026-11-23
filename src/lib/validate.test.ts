@@ -1,5 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { EMAIL, isAnswersResult, isBioResult, isCv, isDraftProfile, isTailorResult, UUID } from "./validate";
+import {
+  EMAIL,
+  isAnswersResult,
+  isBioResult,
+  isCv,
+  isDraftProfile,
+  isFactCheckAnswer,
+  isTailorResult,
+  UUID,
+} from "./validate";
 
 const cv = {
   name: "JANE TESTER",
@@ -37,6 +46,30 @@ describe("isTailorResult", () => {
   it("rejects non-objects", () => {
     expect(isTailorResult(null)).toBe(false);
     expect(isTailorResult([])).toBe(false);
+  });
+  it("accepts each fact check outcome, and results saved before the check existed", () => {
+    const issue = { text: "Wrote SQL queries", problem: "Section 3 does not mention SQL." };
+    expect(isTailorResult({ ...tailor, factCheck: { status: "done", issues: [issue] } })).toBe(true);
+    expect(isTailorResult({ ...tailor, factCheck: { status: "done", issues: [] } })).toBe(true);
+    expect(isTailorResult({ ...tailor, factCheck: { status: "unavailable" } })).toBe(true);
+    expect(isTailorResult({ ...tailor, factCheck: undefined })).toBe(true);
+  });
+  it("rejects a damaged fact check rather than crash the page on it", () => {
+    expect(isTailorResult({ ...tailor, factCheck: { status: "done" } })).toBe(false);
+    expect(isTailorResult({ ...tailor, factCheck: { status: "done", issues: [{ text: "x" }] } })).toBe(false);
+    expect(isTailorResult({ ...tailor, factCheck: { status: "other" } })).toBe(false);
+  });
+});
+
+describe("isFactCheckAnswer", () => {
+  it("accepts a list of quoted issues, or an empty list", () => {
+    expect(isFactCheckAnswer({ issues: [{ text: "a", problem: "b" }] })).toBe(true);
+    expect(isFactCheckAnswer({ issues: [] })).toBe(true);
+  });
+  it("rejects an answer without the list or with an incomplete issue", () => {
+    expect(isFactCheckAnswer({})).toBe(false);
+    expect(isFactCheckAnswer({ issues: [{ problem: "b" }] })).toBe(false);
+    expect(isFactCheckAnswer({ issues: "none" })).toBe(false);
   });
 });
 

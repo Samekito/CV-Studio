@@ -81,6 +81,10 @@ Open the app, choose **Create your account**, and use that email and code. Then,
   CVs go through it, turn on billing for the key (paid tier): Google's free-tier terms allow them
   to use submitted content to improve their products, and the free tier allows only a few dozen
   requests a day. Set a budget alert in Google Cloud Billing at the same time.
+- **Groq (optional, free), recommended alongside Gemini:** https://console.groq.com, then **API
+  Keys**. Set `GROQ_API_KEY`. The app then uses Groq when Gemini is busy or does not answer, and
+  to fact-check every tailored CV against the Fact Bank (the Tailor page lists any line it cannot
+  back up). Without it, Gemini does both jobs and a busy Gemini means a failed generation.
 - **Or Claude:** buy credit at https://platform.claude.com and create a key. Set
   `LLM_PROVIDER=anthropic`. The default model is `claude-opus-5`; `ANTHROPIC_MODEL=claude-sonnet-5`
   costs less per CV.

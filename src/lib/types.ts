@@ -82,7 +82,16 @@ export type TailorResult = {
   keywordsNotTrue: string[];
   cv: Cv;
   coverLetter: string;
+  // Added by the server after the CV is written (src/lib/fact-check.ts). Missing on results saved
+  // in the browser before the check existed.
+  factCheck?: FactCheck;
 };
+
+// One claim in the CV or letter that the Fact Bank does not support.
+export type FactCheckIssue = { text: string; problem: string };
+
+// "unavailable": the checking model failed; the CV is still returned and the page says so.
+export type FactCheck = { status: "done"; issues: FactCheckIssue[] } | { status: "unavailable" };
 
 export type AnswersResult = {
   answers: { question: string; answer: string; note?: string }[];

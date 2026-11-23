@@ -1,7 +1,7 @@
 // Prompt builders for the generation modes. The user's Fact Bank is always the system
 // prompt; each mode appends the task and the exact JSON shape to return. Onboarding is the one
 // exception: the user has no Fact Bank yet, so draftProfileSystemPrompt builds one from the template.
-import type { Track, Tracks } from "./types";
+import type { Cv, Track, Tracks } from "./types";
 
 const TRUTH_RULES = `
 HARD RULES FOR THIS TASK
@@ -73,6 +73,49 @@ Return this JSON:
   "keywordsNotTrue": ["job-ad keywords deliberately left out because they are not true for the candidate"],
   "cv": ${CV_SHAPE},
   "coverLetter": "plain text with \\n\\n between paragraphs"
+}`;
+}
+
+// The CV as the reader sees it, one line per field, so the checker can quote it word for word.
+function cvAsText(cv: Cv): string {
+  const lines = [cv.name, cv.headline, cv.contact.join(" | "), "", "SUMMARY", cv.summary];
+  for (const section of cv.sections) {
+    lines.push("", section.title);
+    for (const item of section.items) {
+      for (const line of [item.heading, item.subheading, item.meta, item.text]) if (line) lines.push(line);
+      for (const bullet of item.bullets ?? []) lines.push(`- ${bullet}`);
+    }
+  }
+  return lines.join("\n");
+}
+
+// Runs after tailorPrompt, on a second model call: free models add small unsupported details
+// even when told not to, so the result page lists what this check finds.
+export function factCheckPrompt(cv: Cv, coverLetter: string): string {
+  return `CV:
+"""
+${cvAsText(cv)}
+"""
+
+COVER LETTER:
+"""
+${coverLetter}
+"""
+
+TASK: Do not write anything new. Check the CV and cover letter above, which were written for the candidate, against the Fact Bank.
+List every claim that section 3 does not support:
+- invented employers, job titles, dates, numbers, tools, skills, duties, outcomes or scope;
+- anything stated more strongly than section 3 states it (for example "led" where section 3 says "contributed", or "built" where it says "specified");
+- anything taken from section 4 (UNCONFIRMED), and anything that breaks a positioning rule in section 2.
+Do not list: rewording that keeps the meaning, shortening, facts left out, statements that the candidate lacks something, or lines that only describe the job or the company.
+List a line only if it needs fixing. If you decide a line is acceptable, leave it out entirely.
+Quote the exact words from the CV or letter, copied character for character, at most 25 words per quote. Explain each problem in one short sentence.
+
+Return this JSON (an empty list when every claim is supported):
+{
+  "issues": [
+    { "text": "the exact words quoted from the CV or letter", "problem": "one sentence: what section 3 actually says, or that it says nothing about this" }
+  ]
 }`;
 }
 

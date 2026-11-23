@@ -9,7 +9,7 @@ import { buildCvDocument, buildLetterDocument, downloadDocx } from "@/lib/docx";
 import { callGenerate } from "@/lib/generate-client";
 import { useMe } from "@/lib/me-client";
 import { createApplication } from "@/lib/tracker-client";
-import { fileBase, type TailorResult, type Track, type Tracks } from "@/lib/types";
+import { fileBase, type FactCheck, type TailorResult, type Track, type Tracks } from "@/lib/types";
 import { isTailorResult } from "@/lib/validate";
 
 const DRAFT_KEY = "cv-studio.tailor";
@@ -184,7 +184,7 @@ export default function TailorPage() {
 
         <div className="flex flex-wrap items-center gap-3">
           <button className="btn" onClick={generate} disabled={busy || draft.jobAd.trim().length < 50}>
-            {busy ? "Writing... (up to a minute)" : "Generate"}
+            {busy ? "Writing and fact-checking... (up to two minutes)" : "Generate"}
           </button>
           {(draft.jobAd || result) && (
             <button className="btn-ghost" onClick={() => update(EMPTY)} disabled={busy}>
@@ -214,6 +214,8 @@ export default function TailorPage() {
               <List title="Left out (not true for you)" items={result.keywordsNotTrue} inline />
             </div>
           </section>
+
+          {result.factCheck && <FactCheckPanel check={result.factCheck} />}
 
           <section className="space-y-3">
             <div className="no-print flex flex-wrap items-center gap-2">
@@ -249,6 +251,45 @@ export default function TailorPage() {
         </>
       )}
     </div>
+  );
+}
+
+// What the second model call found. It can miss things, so even a clean result keeps the reminder.
+function FactCheckPanel({ check }: { check: FactCheck }) {
+  if (check.status === "unavailable") {
+    return (
+      <section className="card no-print">
+        <p className="label">Fact check</p>
+        <p className="text-sm">The fact check did not run this time. Check every line against your Fact Bank before sending.</p>
+      </section>
+    );
+  }
+  if (!check.issues.length) {
+    return (
+      <section className="card no-print">
+        <p className="label">Fact check</p>
+        <p className="text-sm">No unsupported claims found. The check can miss things, so still read every line before sending.</p>
+      </section>
+    );
+  }
+  return (
+    <section className="card no-print space-y-3 border-danger">
+      <div>
+        <p className="label text-danger">Fact check</p>
+        <p className="text-sm">
+          {check.issues.length} {check.issues.length === 1 ? "line is" : "lines are"} not backed by your Fact Bank. Fix or remove{" "}
+          {check.issues.length === 1 ? "it" : "them"} before sending.
+        </p>
+      </div>
+      <ul className="space-y-2 text-sm">
+        {check.issues.map((issue, i) => (
+          <li key={i} className="border-l-2 border-danger pl-3">
+            <p className="font-medium">&ldquo;{issue.text}&rdquo;</p>
+            <p className="text-muted">{issue.problem}</p>
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }
 
